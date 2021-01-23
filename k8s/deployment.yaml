@@ -19,12 +19,9 @@ spec:
           image: kphoen/dark:latest
           env:
             - name: GRAFANA_HOST
-              value: http://grafana.example.com
+              value: http://dashboard.stockmonitor.info:8888
             - name: GRAFANA_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  key: grafana
-                  name: dark-tokens
+              value: eyJrIjoiSEZhQm5HQ0ZqdHJTa0hnMGRYQTNnNHhTWWl4Z2xQWXMiLCJuIjoiZGFyayIsImlkIjoxfQ==
       volumes:
         - name: dark-tokens
           secret:
