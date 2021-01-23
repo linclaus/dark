@@ -1,0 +1,215 @@
+apiVersion: k8s.kevingomez.fr/v1
+kind: GrafanaDashboard
+metadata:
+  name: datang
+  namespace: default
+folder: Test
+spec:
+  title: sh600198:大唐电信
+  editable: true
+  shared_crosshair: false
+  tags: []
+  auto_refresh: ""
+  time:
+  - now-6h
+  - now
+  timezone: browser
+  tags_annotations: []
+  variables: []
+  rows:
+  - name: Overview
+    repeat_for: ""
+    panels:
+    - graph:
+        title: 股票价格
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: stock_current_gauge{code="sh600198"}
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: 
+          nullvalue: "null"
+    - graph:
+        title: 今日涨跌幅
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: stock_increase_gauge{code="sh600198"}
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 交易量变化趋势
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: irate(stock_trade_volume_total{code="sh600198"}[10m])
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 委比
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: stock_weibi_gauge{code="sh600198"}
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 买一至买三之和
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: stock_last_buy_3_gauge{code="sh600198"}
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 卖一至卖三之和
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: stock_last_sell_3_gauge{code="sh600198"}
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 七日内相对于最大值跌幅
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: ((stock_current_gauge{code="sh600198"}-max_over_time(stock_current_gauge{code="sh600198"}[7d]))/max_over_time(stock_current_gauge{code="sh600198"}[7d]))*100
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
+    - graph:
+        title: 七日内相对于最小值涨幅
+        span: 4
+        datasource: Prometheus
+        targets:
+        - prometheus:
+            query: ((stock_current_gauge{code="sh600198"}-min_over_time(stock_current_gauge{code="sh600198"}[7d]))/min_over_time(stock_current_gauge{code="sh600198"}[7d]))*100
+            legend: '{{code}}: {{name}}'
+            ref: A
+        axes:
+          left:
+            hidden: false
+            unit: none
+            log_base: 1
+          right:
+            hidden: false
+            unit: short
+            log_base: 1
+          bottom:
+            hidden: false
+            unit: ""
+            log_base: 0
+        legend: [as_table, min, max, current]
+        visualization: {}
