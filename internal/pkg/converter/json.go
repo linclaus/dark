@@ -161,6 +161,8 @@ func (converter *JSON) convertVariable(variable sdk.TemplateVar, dashboard *grab
 		converter.convertQueryVar(variable, dashboard)
 	case "const":
 		converter.convertConstVar(variable, dashboard)
+	case "datasource":
+		converter.convertDatasourceVar(variable, dashboard)
 	default:
 		converter.logger.Warn("unhandled variable type found: skipped", zap.String("type", variable.Type), zap.String("name", variable.Name))
 	}
@@ -183,10 +185,12 @@ func (converter *JSON) convertIntervalVar(variable sdk.TemplateVar, dashboard *g
 
 func (converter *JSON) convertCustomVar(variable sdk.TemplateVar, dashboard *grabana.DashboardModel) {
 	custom := &grabana.VariableCustom{
-		Name:      variable.Name,
-		Label:     variable.Label,
-		Default:   defaultOption(variable.Current),
-		ValuesMap: make(map[string]string, len(variable.Options)),
+		Name:       variable.Name,
+		Label:      variable.Label,
+		Default:    defaultOption(variable.Current),
+		ValuesMap:  make(map[string]string, len(variable.Options)),
+		AllValue:   variable.AllValue,
+		IncludeAll: variable.IncludeAll,
 	}
 
 	for _, opt := range variable.Options {
@@ -207,11 +211,25 @@ func (converter *JSON) convertQueryVar(variable sdk.TemplateVar, dashboard *grab
 		Label:      variable.Label,
 		Datasource: datasource,
 		Request:    variable.Query,
+		Regex:      variable.Regex,
 		IncludeAll: variable.IncludeAll,
 		DefaultAll: variable.Current.Value == "$__all",
+		AllValue:   variable.AllValue,
 	}
 
 	dashboard.Variables = append(dashboard.Variables, grabana.DashboardVariable{Query: query})
+}
+
+func (converter *JSON) convertDatasourceVar(variable sdk.TemplateVar, dashboard *grabana.DashboardModel) {
+	datasource := &grabana.VariableDatasource{
+		Name:       variable.Name,
+		Label:      variable.Label,
+		Type:       variable.Query,
+		Regex:      variable.Regex,
+		IncludeAll: variable.IncludeAll,
+	}
+
+	dashboard.Variables = append(dashboard.Variables, grabana.DashboardVariable{Datasource: datasource})
 }
 
 func (converter *JSON) convertConstVar(variable sdk.TemplateVar, dashboard *grabana.DashboardModel) {
@@ -239,6 +257,13 @@ func (converter *JSON) convertPanels(panels []*sdk.Panel, dashboard *grabana.Das
 			}
 
 			currentRow = converter.convertRow(*panel)
+
+			for _, rowPanel := range panel.Panels {
+				convertedPanel, ok := converter.convertDataPanel(rowPanel)
+				if ok {
+					currentRow.Panels = append(currentRow.Panels, convertedPanel)
+				}
+			}
 			continue
 		}
 
@@ -246,21 +271,32 @@ func (converter *JSON) convertPanels(panels []*sdk.Panel, dashboard *grabana.Das
 			currentRow = &grabana.DashboardRow{Name: "Overview"}
 		}
 
-		switch panel.Type {
-		case "graph":
-			currentRow.Panels = append(currentRow.Panels, converter.convertGraph(*panel))
-		case "singlestat":
-			currentRow.Panels = append(currentRow.Panels, converter.convertSingleStat(*panel))
-		case "table":
-			currentRow.Panels = append(currentRow.Panels, converter.convertTable(*panel))
-		default:
-			converter.logger.Warn("unhandled panel type: skipped", zap.String("type", panel.Type), zap.String("title", panel.Title))
+		convertedPanel, ok := converter.convertDataPanel(*panel)
+		if ok {
+			currentRow.Panels = append(currentRow.Panels, convertedPanel)
 		}
 	}
 
 	if currentRow != nil {
 		dashboard.Rows = append(dashboard.Rows, *currentRow)
 	}
+}
+
+func (converter *JSON) convertDataPanel(panel sdk.Panel) (grabana.DashboardPanel, bool) {
+	switch panel.Type {
+	case "graph":
+		return converter.convertGraph(panel), true
+	case "singlestat":
+		return converter.convertSingleStat(panel), true
+	case "table":
+		return converter.convertTable(panel), true
+	case "text":
+		return converter.convertText(panel), true
+	default:
+		converter.logger.Warn("unhandled panel type: skipped", zap.String("type", panel.Type), zap.String("title", panel.Title))
+	}
+
+	return grabana.DashboardPanel{}, false
 }
 
 func (converter *JSON) convertRow(panel sdk.Panel) *grabana.DashboardRow {
@@ -272,12 +308,14 @@ func (converter *JSON) convertRow(panel sdk.Panel) *grabana.DashboardRow {
 
 func (converter *JSON) convertGraph(panel sdk.Panel) grabana.DashboardPanel {
 	graph := &grabana.DashboardGraph{
-		Title: panel.Title,
-		Span:  panelSpan(panel),
+		Title:       panel.Title,
+		Span:        panelSpan(panel),
+		Transparent: panel.Transparent,
 		Axes: &grabana.GraphAxes{
 			Bottom: converter.convertAxis(panel.Xaxis),
 		},
-		Legend: converter.convertLegend(panel.Legend),
+		Legend:        converter.convertLegend(panel.Legend),
+		Visualization: converter.convertVisualization(panel),
 	}
 
 	if panel.Height != nil {
@@ -302,6 +340,15 @@ func (converter *JSON) convertGraph(panel sdk.Panel) grabana.DashboardPanel {
 	}
 
 	return grabana.DashboardPanel{Graph: graph}
+}
+
+func (converter *JSON) convertVisualization(panel sdk.Panel) *grabana.GraphVisualization {
+	graphViz := &grabana.GraphVisualization{
+		NullValue: panel.GraphPanel.NullPointMode,
+		Staircase: panel.GraphPanel.SteppedLine,
+	}
+
+	return graphViz
 }
 
 func (converter *JSON) convertLegend(sdkLegend sdk.Legend) []string {
@@ -365,10 +412,11 @@ func (converter *JSON) convertAxis(sdkAxis sdk.Axis) *grabana.GraphAxis {
 
 func (converter *JSON) convertSingleStat(panel sdk.Panel) grabana.DashboardPanel {
 	singleStat := &grabana.DashboardSingleStat{
-		Title:     panel.Title,
-		Span:      panelSpan(panel),
-		Unit:      panel.SinglestatPanel.Format,
-		ValueType: panel.SinglestatPanel.ValueName,
+		Title:       panel.Title,
+		Span:        panelSpan(panel),
+		Unit:        panel.SinglestatPanel.Format,
+		ValueType:   panel.SinglestatPanel.ValueName,
+		Transparent: panel.Transparent,
 	}
 
 	if panel.Height != nil {
@@ -423,8 +471,9 @@ func (converter *JSON) convertSingleStat(panel sdk.Panel) grabana.DashboardPanel
 
 func (converter *JSON) convertTable(panel sdk.Panel) grabana.DashboardPanel {
 	table := &grabana.DashboardTable{
-		Title: panel.Title,
-		Span:  panelSpan(panel),
+		Title:       panel.Title,
+		Span:        panelSpan(panel),
+		Transparent: panel.Transparent,
 	}
 
 	if panel.Height != nil {
@@ -465,6 +514,26 @@ func (converter *JSON) convertTable(panel sdk.Panel) grabana.DashboardPanel {
 	}
 
 	return grabana.DashboardPanel{Table: table}
+}
+
+func (converter *JSON) convertText(panel sdk.Panel) grabana.DashboardPanel {
+	text := &grabana.DashboardText{
+		Title:       panel.Title,
+		Span:        panelSpan(panel),
+		Transparent: panel.Transparent,
+	}
+
+	if panel.Height != nil {
+		text.Height = *panel.Height
+	}
+
+	if panel.TextPanel.Mode == "markdown" {
+		text.Markdown = panel.TextPanel.Content
+	} else {
+		text.HTML = panel.TextPanel.Content
+	}
+
+	return grabana.DashboardPanel{Text: text}
 }
 
 func (converter *JSON) convertTarget(target sdk.Target) *grabana.Target {
